@@ -1,0 +1,14 @@
+# --- Virtual Environment ---
+venv/
+.venv/
+
+# --- Python Cache ---
+__pycache__/
+.pytest_cache/
+
+# --- IDE / Editor specific files ---
+.vscode/
+.idea/
+
+# --- Environment variables ---
+.env
