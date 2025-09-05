@@ -25,3 +25,18 @@ class UploadResponse(BaseModel):
         description="MIME-тип загруженного файла",
         examples=["application/pdf"],
     )
+
+
+class SummaryResponse(BaseModel):
+    """Модель ответа с кратким содержанием документа."""
+
+    document_id: str = Field(
+        ...,
+        description="Уникальный идентификатор документа",
+        examples=["doc_a1b2c3d4"],
+    )
+    summary: str = Field(
+        ...,
+        description="Сгенерированное краткое содержание документа",
+        examples=["В документе рассматриваются основные принципы..."],
+    )
