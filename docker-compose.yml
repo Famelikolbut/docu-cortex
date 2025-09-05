@@ -1,11 +1,22 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     ports:
       - "8000:8000"
-    volumes:
-      - ./src:/app/src
     env_file:
       - .env
+    command: python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./src:/app/src
+      - chroma_data:/app/chroma_data
+      - documents_storage:/app/documents_storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  chroma_data:
+  documents_storage:
