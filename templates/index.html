@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuCortex Ассистент</title>
+    <!-- Подключаем Pico.css для красоты -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+    <style>
+        /* Немного стилей для чата */
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        main { width: 100%; max-width: 800px; }
+        #chat-window { height: 60vh; overflow-y: auto; border: 1px solid var(--pico-muted-border-color); padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1rem; }
+        .message { margin-bottom: 1rem; padding: 0.75rem; border-radius: var(--pico-border-radius); }
+        .user-message { background-color: var(--pico-primary-background); border: 1px solid var(--pico-primary-border); margin-left: auto; width: fit-content; max-width: 80%; }
+        .bot-message { background-color: var(--pico-secondary-background); border: 1px solid var(--pico-secondary-border); width: fit-content; max-width: 80%; }
+        form { display: flex; gap: 1rem; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h2>DocuCortex Ассистент</h2>
+            <p>Задайте вопрос к вашему документу</p>
+        </header>
+
+        <article id="chat-window">
+            <!-- Сюда будут добавляться сообщения -->
+        </article>
+
+        <footer>
+            <form id="message-form">
+                <input type="text" id="doc-id-input" placeholder="ID Документа" required>
+                <input type="text" id="message-input" placeholder="Ваш вопрос..." required style="flex-grow: 1;">
+                <button type="submit" id="send-button">Отправить</button>
+            </form>
+        </footer>
+    </main>
+
+    <script>
+        // --- Наш JavaScript для взаимодействия с API ---
+        const form = document.getElementById('message-form');
+        const docIdInput = document.getElementById('doc-id-input');
+        const messageInput = document.getElementById('message-input');
+        const chatWindow = document.getElementById('chat-window');
+        const sendButton = document.getElementById('send-button');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const documentId = docIdInput.value.trim();
+            const question = messageInput.value.trim();
+
+            if (!question || !documentId) return;
+
+            // Отображаем сообщение пользователя
+            addMessage(question, 'user-message');
+            messageInput.value = '';
+            sendButton.setAttribute('aria-busy', 'true'); // Показываем индикатор загрузки
+
+            try {
+                // Отправляем запрос на наш FastAPI бэкенд
+                const response = await fetch('/api/v1/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ document_id: documentId, question: question })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Произошла ошибка');
+                }
+
+                const data = await response.json();
+                // Отображаем ответ бота
+                addMessage(data.answer, 'bot-message');
+
+            } catch (error) {
+                addMessage(`Ошибка: ${error.message}`, 'bot-message');
+            } finally {
+                sendButton.setAttribute('aria-busy', 'false'); // Убираем индикатор загрузки
+            }
+        });
+
+        function addMessage(text, className) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${className}`;
+            messageElement.textContent = text;
+            chatWindow.appendChild(messageElement);
+            // Автоматически прокручиваем вниз
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    </script>
+</body>
+</html>
