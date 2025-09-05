@@ -1,20 +1,20 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
 
 
--   repo: https://github.com/astral-sh/ruff-pre-commit
+  - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
-    # Хук для линтинга и авто-исправления
-    -   id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+      # Хук для линтинга и авто-исправления
+      - id: ruff
+        args: [ --fix, --exit-non-zero-on-fix ]
         language_version: python
-    # Хук для форматирования кода
-    -   id: ruff-format
+      # Хук для форматирования кода
+      - id: ruff-format
         language_version: python
