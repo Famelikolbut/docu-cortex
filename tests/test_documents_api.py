@@ -17,9 +17,6 @@ def mock_analysis_service() -> MagicMock:
 
 @pytest.fixture
 def mocked_document_service_api(mock_document_service: MagicMock):
-    """
-    Фикстура для безопасной подмены DocumentService в API.
-    """
     app.dependency_overrides[get_document_service] = lambda: mock_document_service
     yield
     app.dependency_overrides.clear()
@@ -37,11 +34,8 @@ def mocked_analysis_service_api(mock_analysis_service: MagicMock):
 async def test_upload_document_success(
     client: AsyncClient,
     mock_document_service: MagicMock,
-    mocked_document_service_api: None,  # Фикстура активируется просто по упоминанию
 ):
-    """
-    Тест успешной загрузки документа.
-    """
+    """Тест успешной загрузки документа."""
     mock_response = UploadResponse(
         document_id="doc_test_123",
         filename="test.pdf",
@@ -71,8 +65,8 @@ async def test_upload_document_unsupported_type(client: AsyncClient):
 @pytest.mark.usefixtures("mocked_analysis_service_api")
 @pytest.mark.asyncio
 async def test_get_summary_success(
-        client: AsyncClient,
-        mock_analysis_service: MagicMock,
+    client: AsyncClient,
+    mock_analysis_service: MagicMock,
 ):
     """Тест успешного получения краткого содержания документа."""
     doc_id = "doc_test_123"
@@ -91,8 +85,8 @@ async def test_get_summary_success(
 @pytest.mark.usefixtures("mocked_analysis_service_api")
 @pytest.mark.asyncio
 async def test_get_summary_not_found(
-        client: AsyncClient,
-        mock_analysis_service: MagicMock,
+    client: AsyncClient,
+    mock_analysis_service: MagicMock,
 ):
     """Тест получения summary для несуществующего документа."""
     doc_id = "doc_not_found"
