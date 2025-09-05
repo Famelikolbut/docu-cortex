@@ -1,18 +1,27 @@
-from fastapi import APIRouter, UploadFile, File, status
-from src.models.documents import DocumentMetadata
-from src.services.document_service import document_service
+from fastapi import APIRouter, File, UploadFile, status, Depends
 
-router = APIRouter()
+from src.models.documents import UploadResponse
+from src.services.document_service import DocumentService, document_service
+
+
+def get_document_service() -> DocumentService:
+    return document_service
+
+
+router = APIRouter(tags=["Documents"])
 
 
 @router.post(
     "/documents",
-    response_model=DocumentMetadata,
+    response_model=UploadResponse,
     status_code=status.HTTP_201_CREATED,
-    tags=["Documents"],
-    summary="Загрузка документа для анализа",
 )
 async def upload_document(
-    file: UploadFile = File(..., description="Файл для загрузки (PDF или TXT)"),
-):
-    return await document_service.process_and_store_document(file)
+    file: UploadFile = File(...),
+    service: DocumentService = Depends(get_document_service),
+) -> UploadResponse:
+    """
+    Загружает документ, извлекает из него текст и сохраняет для последующего анализа.
+    Поддерживаемые форматы: PDF, TXT.
+    """
+    return await service.process_document(file)

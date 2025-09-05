@@ -1,51 +1,117 @@
+from __future__ import annotations
+
+import asyncio
 import uuid
-from typing import Dict, Any
+from pathlib import Path
+from typing import Optional
+
+import aiofiles
 import fitz
 from fastapi import UploadFile, HTTPException, status
-from starlette.concurrency import run_in_threadpool
-from src.core.logging import logger
+from loguru import logger
 
-db: Dict[str, Dict[str, Any]] = {}
+from src.models.documents import UploadResponse
 
 
 class DocumentService:
-    @staticmethod
-    def _extract_text(file_contents: bytes, content_type: str) -> str:
-        """Синхронная функция для извлечения текста, запускается в отдельном потоке."""
+    """
+    Сервис для обработки и управления документами.
+    """
+
+    _storage_path = Path("documents_storage")
+
+    def __init__(self):
+        self._storage_path.mkdir(exist_ok=True)
+
+    async def process_document(self, file: UploadFile) -> UploadResponse:
+        """
+        Обрабатывает загруженный файл, извлекает текст и сохраняет его.
+        """
+        logger.info(f"Обработка файла: {file.filename}")
+
+        content_type = file.content_type
         if content_type == "application/pdf":
-            with fitz.open(stream=file_contents, filetype="pdf") as doc:
-                return "".join(page.get_text() for page in doc)
+            text = await self._extract_text_from_pdf(file)
         elif content_type == "text/plain":
-            return file_contents.decode("utf-8")
+            text = await self._extract_text_from_txt(file)
         else:
-            raise ValueError(f"Неподдерживаемый тип файла: {content_type}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Неподдерживаемый тип файла. Пожалуйста, используйте PDF или TXT.",
+            )
+
+        if not text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Загруженный документ пуст.",
+            )
+
+        doc_id = f"doc_{uuid.uuid4().hex}"
+        await self._save_text_to_file(doc_id, text)
+
+        return UploadResponse(
+            document_id=doc_id,
+            filename=file.filename,
+            content_type=content_type,
+        )
+
+    async def get_document_content(self, doc_id: str) -> Optional[str]:
+        """
+        Получает текстовое содержимое документа по его ID.
+        """
+        return await self._read_text_from_file(doc_id)
+
+    async def _save_text_to_file(self, doc_id: str, text: str) -> None:
+        file_path = self._storage_path / f"{doc_id}.txt"
+        try:
+            async with aiofiles.open(file_path, mode="w", encoding="utf-8") as f:
+                await f.write(text)
+            logger.success(f"Текст для документа {doc_id} сохранен в {file_path}")
+        except IOError as e:
+            logger.error(f"Ошибка сохранения файла для {doc_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Не удалось сохранить обработанный документ.",
+            )
+
+    async def _read_text_from_file(self, doc_id: str) -> Optional[str]:
+        file_path = self._storage_path / f"{doc_id}.txt"
+        if not file_path.exists():
+            return None
+        try:
+            async with aiofiles.open(file_path, mode="r", encoding="utf-8") as f:
+                return await f.read()
+        except IOError as e:
+            logger.error(f"Ошибка чтения файла для {doc_id}: {e}")
+            return None
+
+    async def _extract_text_from_pdf(self, file: UploadFile) -> str:
+        content = await file.read()
+        return await asyncio.to_thread(self._extract_text_from_pdf_sync, content)
 
     @staticmethod
-    async def process_and_store_document(file: UploadFile) -> Dict[str, str]:
-        logger.info(f"Starting processing of file: {file.filename}")
+    def _extract_text_from_pdf_sync(content: bytes) -> str:
         try:
-            file_contents = await file.read()
-            text_content = await run_in_threadpool(
-                DocumentService._extract_text, file_contents, file.content_type
-            )
-            if not text_content.strip():
-                raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST,
-                    "Не удалось извлечь текст из файла. Возможно, он пуст.",
-                )
-        except ValueError as e:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+            with fitz.open(stream=content, filetype="pdf") as doc:
+                return "".join(page.get_text() for page in doc)
         except Exception as e:
-            logger.error(f"Error processing file {file.filename}: {e}", exc_info=True)
+            logger.error(f"Ошибка извлечения текста из PDF: {e}")
             raise HTTPException(
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "Внутренняя ошибка при обработке файла.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось обработать PDF файл.",
             )
 
-        document_id = f"doc_{uuid.uuid4().hex}"
-        db[document_id] = {"filename": file.filename, "content": text_content}
-        logger.info(f"Successfully stored file: {file.filename} with id: {document_id}")
-        return {"document_id": document_id, "filename": file.filename}
+    @staticmethod
+    async def _extract_text_from_txt(file: UploadFile) -> str:
+        content = await file.read()
+        try:
+            return content.decode("utf-8")
+        except UnicodeDecodeError as e:
+            logger.error(f"Ошибка декодирования TXT файла: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось декодировать TXT файл. Убедитесь, что он в кодировке UTF-8.",
+            )
 
 
 document_service = DocumentService()

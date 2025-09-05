@@ -7,16 +7,14 @@ repos:
     -   id: check-yaml
     -   id: check-added-large-files
 
--   repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-    -   id: black
-        # !!! ИЗМЕНЕНИЕ: Используем 'python' вместо 'python3.10'
-        language_version: python
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
+    # Хук для линтинга и авто-исправления
     -   id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        language_version: python
+    # Хук для форматирования кода
     -   id: ruff-format
+        language_version: python
